@@ -3,7 +3,7 @@
 use crate::catalog::{self, Source};
 use crate::host::{Http, Storage};
 use crate::model::{Catalog, Config, Error, Playback, Preset, ProviderInfo};
-use crate::{dailymotion, francetv};
+use crate::{bfm, dailymotion, francetv, sites};
 
 pub const ID: &str = "antenne";
 pub const NAME: &str = "Antenne";
@@ -27,7 +27,14 @@ pub fn stream_url(http: &impl Http, storage: &impl Storage, _config: &Config, ch
     match entry.source {
         Source::Dailymotion { video, embedder } => dailymotion::resolve(http, storage, video, embedder),
         Source::FranceTv { si_id } => francetv::resolve(http, storage, si_id),
-        _ => Err(Error::BadResponse(format!("{} cannot be played yet", entry.name))),
+        Source::Bfm { path } => bfm::resolve(http, storage, path),
+        Source::Kick { slug } => sites::kick(http, slug),
+        Source::Equidia { name } => sites::equidia(http, name),
+        Source::EasyBroadcast { tenant, event } => sites::easybroadcast(http, tenant, event),
+        Source::HdrVisio { page } => sites::hdr_visio(http, page),
+        Source::Digiteka { iframe } => sites::digiteka(http, iframe),
+        Source::TvMonaco => sites::tv_monaco(http),
+        Source::Static { url } => Ok(Playback::direct(url)),
     }
 }
 
@@ -75,11 +82,32 @@ mod tests {
     }
 
     #[test]
+    fn every_other_source_resolves_through_its_player() {
+        let http = FakeHttp::new()
+            .on("https://kick.com/*", 200, r#"{"livestream":{},"playback_url":"https://k.test/a.m3u8"}"#)
+            .on("https://api.equidia.fr/*", 200, r#"{"primary":"https://e.test/a.m3u8"}"#)
+            .on("https://captaprod.player.easybroadcast.io/*", 200, r#"{"stream":"https://eb.test/a.m3u8"}"#)
+            .on("https://www.tv7.fr/", 200, &fixture("tv7-home.html"))
+            .on("https://www.tv7.fr/visionneuse/*", 200, r#"{"files":{"auto":"https://kd.test/manifest.mpd"}}"#)
+            .on("https://www.ultimedia.com/*", 200, &fixture("ultimedia-iframe.html"))
+            .on("https://videos.tvmonaco.com/*", 200, r#"{"external_stream":{"url":"https://m.test/a.m3u8"}}"#);
+        let storage = FakeStorage::new().with("bfm:lyon/en-direct/", "https://b.test/lyon.m3u8");
+        let url = |id: &str| stream_url(&http, &storage, &Vec::new(), id).unwrap().url;
+        assert_eq!(url("bfm-lyon"), "https://b.test/lyon.m3u8");
+        assert_eq!(url("tg-plus"), "https://k.test/a.m3u8");
+        assert_eq!(url("equidia"), "https://e.test/a.m3u8");
+        assert_eq!(url("tvr"), "https://eb.test/a.m3u8");
+        assert_eq!(url("tv7-colmar"), "https://kd.test/playlist.m3u8");
+        assert_eq!(url("20-minutes-tv-idf"), "https://live-20minutestv.digiteka.com/1961167769/index.m3u8");
+        assert_eq!(url("tv-monaco"), "https://m.test/a.m3u8");
+        assert_eq!(url("kto"), "https://livekto.akamaized.net/hls/live/20000018/ktotv/master.m3u8");
+    }
+
+    #[test]
     fn unknown_channels_and_replays_are_clear_errors() {
         let none = FakeHttp::new();
         assert_eq!(stream_url(&none, &FakeStorage::new(), &Vec::new(), "tf1"), Err(Error::BadResponse("unknown channel: tf1".into())));
         assert!(matches!(catchup_url("cnews"), Err(Error::BadResponse(m)) if m.contains("no replay")));
         assert!(episodes().is_err());
-        assert!(matches!(stream_url(&none, &FakeStorage::new(), &Vec::new(), "bfmtv"), Err(Error::BadResponse(m)) if m.contains("yet")));
     }
 }

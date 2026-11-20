@@ -1,0 +1,8 @@
+{
+ "name": "TVR",
+ "status": "goLive",
+ "stream": "https://cdn.live.easybroadcast.io/abr_corp/54_tvr_vtucuxt/playlist.m3u8",
+ "token_authentication": false,
+ "logo": null,
+ "epg": "none"
+}

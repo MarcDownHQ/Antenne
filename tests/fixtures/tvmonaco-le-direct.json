@@ -1,0 +1,11 @@
+{
+ "external_stream": {
+  "type": "stream",
+  "url": "https://production-fast-mcrtv.content.okast.tv/channels/2116dc08-1959-465d-857f-3619daefb66b/b702b2b9-aebd-436c-be69-2118f56f3d86/master.m3u8",
+  "uuid": "a59d7426-b979-4a18-a972-b0c1a221b518",
+  "media_uuid": "cac940a8-1227-480d-a670-cbdf1b8c3f1f",
+  "epg_url": "https://public-vod-tvmonaco.s3.amazonaws.com/tvm_epg_okast.xml",
+  "player_code": null,
+  "url_type": "m3u8"
+ }
+}

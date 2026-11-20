@@ -3,12 +3,15 @@
 //! Everything but [`wasm`] is plain Rust that builds and is tested natively; `wasm` adapts the host imports and
 //! exports of `wit/provider.wit` to it.
 
+pub mod bfm;
 pub mod catalog;
 pub mod dailymotion;
 pub mod francetv;
 pub mod host;
+mod html;
 pub mod model;
 pub mod provider;
+pub mod sites;
 
 #[cfg(test)]
 mod testing;

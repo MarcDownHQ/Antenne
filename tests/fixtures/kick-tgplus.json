@@ -1,0 +1,13 @@
+{
+ "id": 52112027,
+ "slug": "tgplus",
+ "playback_url": "https://fa723fc1b171.us-west-2.playback.live-video.net/api/video/v1/us-west-2.196233775518.channel.b4f0rg5VmqgV.m3u8?token=JWT",
+ "livestream": {
+  "id": 138866794,
+  "is_live": true,
+  "session_title": "Telegrenoble"
+ },
+ "user": {
+  "profile_pic": "https://files.kick.com/images/user/53234261/profile_image/conversion/ff96cc7f-6301-47a3-93cf-2aee5e23eba8-fullsize.webp"
+ }
+}
