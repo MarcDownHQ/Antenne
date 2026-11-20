@@ -47,6 +47,16 @@ fn max_bandwidth(master: &str) -> u64 {
         .unwrap_or(0)
 }
 
+/// The tallest variant of a master, in lines.
+pub fn max_height(master: &str) -> u32 {
+    master
+        .lines()
+        .filter(|l| l.starts_with("#EXT-X-STREAM-INF:"))
+        .filter_map(|l| attribute(l, "RESOLUTION")?.split_once('x')?.1.parse().ok())
+        .max()
+        .unwrap_or(0)
+}
+
 /// The Dailymotion video an address serves from: the encoder it belongs to.
 fn encoder_of(uri: &str) -> Option<&str> {
     let path = uri.split(['?', '#']).next()?;
@@ -232,6 +242,13 @@ mod tests {
         assert_eq!(attribute("#X:A", "A"), None);
         assert_eq!(attribute("#X:A=\"open", "A"), None);
         assert_eq!(max_bandwidth("#EXT-X-STREAM-INF:BANDWIDTH=x\nv\n"), 0);
+    }
+
+    #[test]
+    fn measures_the_tallest_variant() {
+        assert_eq!(max_height(&fixture("dm-master-cnews.m3u8")), 1080);
+        assert_eq!(max_height(&fixture("dm-master-t18.m3u8")), 477);
+        assert_eq!(max_height("#EXT-X-STREAM-INF:RESOLUTION=wide\nv\n#EXT-X-STREAM-INF:BANDWIDTH=1\nv\n"), 0);
     }
 
     #[test]

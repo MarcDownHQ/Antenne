@@ -2,6 +2,7 @@
 
 use serde_json::Value;
 
+use crate::hls::max_height;
 use crate::host::{Http, Request, Storage, encode};
 use crate::model::{Browser, Error, Playback, Relay};
 
@@ -11,9 +12,17 @@ const ATTEMPTS: usize = 5;
 /// The handshake the master needs: over the app's own client the master answers 403 (`E005`) nearly every time.
 pub const BROWSER: Browser = Browser::Chrome;
 const KEPT_FOR: u32 = 120;
+const FULL_HEIGHT: u32 = 720;
+const LADDERS: usize = 3;
+const LADDER_FOR: u32 = 24 * 3600;
+const SHORT_LADDER_FOR: u32 = 3600;
 
 pub fn kept_master(video: &str) -> String {
     format!("dm:master:{video}")
+}
+
+pub fn kept_ladder(video: &str) -> String {
+    format!("dm:ladder:{video}")
 }
 
 /// The video id of a master address, for the masters Dailymotion signs.
@@ -23,20 +32,37 @@ pub fn master_video(url: &str) -> Option<&str> {
 }
 
 /// The whole master: its audio is in separate renditions on most channels, so no single variant is enough.
+///
+/// Some signed addresses list a cut-down ladder (480p at most) for as long as they live, so new ones are asked for
+/// until the ladder reaches the height last seen for this video, within a few tries.
 pub fn resolve(http: &impl Http, storage: &impl Storage, video: &str, embedder: Option<&str>) -> Result<Playback, Error> {
+    let wanted = storage.get(&kept_ladder(video)).and_then(|h| h.parse().ok()).unwrap_or(FULL_HEIGHT);
+    let mut best: Option<(u32, String, String)> = None;
+    let mut ladders = 0;
     let mut last = Error::BadResponse(format!("Dailymotion {video}: no answer"));
     for _ in 0..ATTEMPTS {
         let master = master_url(http, video, embedder)?;
         match http.send(&Request::get(&master).browser(BROWSER)) {
             Ok(response) if response.ok() => {
-                let _ = storage.set(&kept_master(video), &response.text(), Some(KEPT_FOR), false);
-                return Ok(Playback { url: master, headers: Vec::new(), relay: Some(Relay { browser: Some(BROWSER), filter: true }) });
+                let body = response.text();
+                let height = max_height(&body);
+                if best.as_ref().is_none_or(|(h, _, _)| height > *h) {
+                    best = Some((height, master, body));
+                }
+                ladders += 1;
+                if height >= wanted || ladders == LADDERS {
+                    break;
+                }
             }
             Ok(response) => last = Error::Http(response.status),
             Err(e) => last = e,
         }
     }
-    Err(last)
+    let Some((height, master, body)) = best else { return Err(last) };
+    let _ = storage.set(&kept_master(video), &body, Some(KEPT_FOR), false);
+    let ladder_for = if height >= wanted { LADDER_FOR } else { SHORT_LADDER_FOR };
+    let _ = storage.set(&kept_ladder(video), &height.to_string(), Some(ladder_for), true);
+    Ok(Playback { url: master, headers: Vec::new(), relay: Some(Relay { browser: Some(BROWSER), filter: true }) })
 }
 
 fn master_url(http: &impl Http, video: &str, embedder: Option<&str>) -> Result<String, Error> {
@@ -103,7 +129,7 @@ mod tests {
             .on(CNEWS_META, 200, &fixture("dm-metadata-cnews.json"))
             .answer(&master, Ok(denied()))
             .answer(&master, Ok(denied()))
-            .on(&master, 200, "#EXTM3U");
+            .on(&master, 200, &ladder(1080));
         let playback = resolve(&http, &FakeStorage::new(), "x3b68jn", None).unwrap();
         assert_eq!(playback.url, master);
         assert_eq!(http.urls().iter().filter(|u| u.as_str() == CNEWS_META).count(), 3);
@@ -117,6 +143,44 @@ mod tests {
         assert_eq!(http.urls().len(), 10);
         let unreachable = FakeHttp::new().on(CNEWS_META, 200, &fixture("dm-metadata-cnews.json"));
         assert!(matches!(resolve(&unreachable, &FakeStorage::new(), "x3b68jn", None), Err(Error::Network(_))));
+    }
+
+    fn ladder(height: u32) -> String {
+        format!("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH={height},RESOLUTION=1x{height}\nhttps://l.test/x3b68jn/{height}.m3u8\n")
+    }
+
+    #[test]
+    fn a_cut_down_ladder_is_asked_again() {
+        let master = cnews_master();
+        let http = FakeHttp::new().on(CNEWS_META, 200, &fixture("dm-metadata-cnews.json")).on(&master, 200, &ladder(477)).on(
+            &master,
+            200,
+            &ladder(1080),
+        );
+        let storage = FakeStorage::new();
+        assert!(resolve(&http, &storage, "x3b68jn", None).is_ok());
+        assert_eq!(http.urls().len(), 4);
+        assert!(storage.get("dm:master:x3b68jn").unwrap().contains("/1080.m3u8"));
+        assert_eq!(storage.value("dm:ladder:x3b68jn"), Some(("1080".into(), Some(LADDER_FOR), true)));
+    }
+
+    #[test]
+    fn a_short_ladder_is_taken_after_three_tries_and_remembered_briefly() {
+        let master = cnews_master();
+        let http = FakeHttp::new().on(CNEWS_META, 200, &fixture("dm-metadata-cnews.json")).on(&master, 200, &ladder(288)).on(
+            &master,
+            200,
+            &ladder(477),
+        );
+        let storage = FakeStorage::new();
+        assert!(resolve(&http, &storage, "x3b68jn", None).is_ok());
+        assert_eq!(http.urls().len(), 6);
+        assert!(storage.get("dm:master:x3b68jn").unwrap().contains("/477.m3u8"));
+        assert_eq!(storage.value("dm:ladder:x3b68jn"), Some(("477".into(), Some(SHORT_LADDER_FOR), true)));
+        let again = FakeHttp::new().on(CNEWS_META, 200, &fixture("dm-metadata-cnews.json")).on(&master, 200, &ladder(477));
+        assert!(resolve(&again, &storage, "x3b68jn", None).is_ok());
+        assert_eq!(again.urls().len(), 2);
+        assert_eq!(storage.value("dm:ladder:x3b68jn"), Some(("477".into(), Some(LADDER_FOR), true)));
     }
 
     #[test]
