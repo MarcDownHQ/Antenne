@@ -19,12 +19,6 @@ pub enum Error {
     Setting(String),
 }
 
-impl Error {
-    pub fn bad(message: impl Into<String>) -> Self {
-        Error::BadResponse(message.into())
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Preset {
     pub label: String,
@@ -66,12 +60,6 @@ pub struct Playback {
     pub url: String,
     pub headers: Vec<(String, String)>,
     pub relay: Option<Relay>,
-}
-
-impl Playback {
-    pub fn direct(url: impl Into<String>) -> Self {
-        Playback { url: url.into(), headers: Vec::new(), relay: None }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
