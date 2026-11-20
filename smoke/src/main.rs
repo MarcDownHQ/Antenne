@@ -133,6 +133,9 @@ fn check(client: &Client, storage: &Memory, playback: &Playback) -> Result<Strin
         }
         Ok(uris(&t).len())
     };
+    if variants == 0 && text.contains("#EXTINF:") {
+        return Ok(format!("a media playlist of {} segments, no master", uris(&text).len()));
+    }
     if let Some(first) = uris(&text).first() {
         let _ = write!(report, "; first variant: {} segments", playlist(first, "variant")?);
     }
