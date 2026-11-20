@@ -1,6 +1,7 @@
 //! The plugin's exports, over any [`Http`](crate::host::Http) and [`Storage`](crate::host::Storage).
 
-use crate::model::{Preset, ProviderInfo};
+use crate::catalog;
+use crate::model::{Catalog, Config, Error, Preset, ProviderInfo};
 
 pub const ID: &str = "antenne";
 pub const NAME: &str = "Antenne";
@@ -14,6 +15,10 @@ pub fn describe() -> ProviderInfo {
     }
 }
 
+pub fn load_catalog(_config: &Config) -> Result<Catalog, Error> {
+    Ok(catalog::load())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -25,5 +30,10 @@ mod tests {
         assert!(info.resolves_streams);
         assert_eq!(info.presets.len(), 1);
         assert_eq!(info.presets[0].config, Vec::new());
+    }
+
+    #[test]
+    fn the_catalog_needs_no_setting() {
+        assert_eq!(load_catalog(&Vec::new()).unwrap().channels.len(), catalog::CHANNELS.len());
     }
 }
