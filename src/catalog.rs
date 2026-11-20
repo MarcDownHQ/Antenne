@@ -296,7 +296,6 @@ pub const CHANNELS: &[Entry] = &[
     // Overseas
     ch("reunion-la-1ere", "Réunion La 1ère", "Overseas", telerama!(245), ftv("5e959b18-89d2-458b-8db7-1f1fba23b98f")),
     ch("nouvelle-caledonie-la-1ere", "Nouvelle-Calédonie La 1ère", "Overseas", telerama!(240), ftv("d718bf92-092d-486f-9497-cd8aadeabcee")),
-    ch("wallis-et-futuna-la-1ere", "Wallis et Futuna La 1ère", "Overseas", None, ftv("229852d7-0bdc-46c4-aba4-3764d31beec7")),
     ch(
         "antenne-reunion",
         "Antenne Réunion",
