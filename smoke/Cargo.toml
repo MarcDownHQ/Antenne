@@ -1,0 +1,19 @@
+[package]
+name = "antenne-smoke"
+description = "Resolves Antenne channels against the live services, with the HTTP clients the Nightglass host uses"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+antenne = { path = ".." }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip", "http2", "charset"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+wreq = { version = "=6.0.0-rc.31", default-features = false, features = ["webpki-roots", "tokio-rt", "gzip", "brotli", "deflate", "zstd", "prefix-symbols"] }
+wreq-util = "=3.0.0-rc.14"
