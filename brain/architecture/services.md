@@ -30,7 +30,8 @@ with `Referer: https://www.dailymotion.com/`. JSON, always 200:
 - A signed master that answered 200 still answers 403 about once in twenty fetches at random, and the next fetch of
   the same address succeeds (12 refusals in 244 fetches, over 40 sequences of repeated fetches).
 - **Seen live.** Some signed addresses list a cut-down ladder (240p to 480p) and keep listing it on every fetch;
-  fresh metadata gives a full one (CNews: 6 then 10 variants).
+  fresh metadata gives a full one (CNews: 6 then 10 variants). How often varies: that afternoon, CNews gave the
+  full ladder on 1 fresh metadata in 19, so three tries mostly end on 480p.
 
 **Master shapes**:
 

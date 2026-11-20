@@ -44,6 +44,8 @@ switches variants (same bandwidth on both) or takes audio from the other group j
 
 - The relay fetches the master again after `stream-url` checked it, and about one fetch in twenty is refused at
   random. The relay does not retry and the player gets the 403 (see [TODO.md](../../TODO.md)).
+- When a channel serves the cut-down ladder most of the time (CNews did, on 18 metadata in 19), three tries rarely
+  find a full one; the play starts at 480p at most.
 - The live edge of the audio and video playlists can differ by a segment (3 s); players that pick each edge alone
   may start a few seconds silent. Not handled (ROADMAP, Later).
 
