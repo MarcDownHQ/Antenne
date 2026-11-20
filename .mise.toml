@@ -1,0 +1,2 @@
+[tools]
+rust = { version = "1.100.0", components = "clippy,rustfmt,llvm-tools-preview", targets = "wasm32-wasip2" }
