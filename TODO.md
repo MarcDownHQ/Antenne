@@ -5,12 +5,9 @@ Small, concrete work: fixes, chores, decisions to make before a roadmap item sta
 
 ## Open decisions
 
-- [ ] **A refused Dailymotion master fails the play.** A signed master answers 403 (`E005`) on about one fetch in
-      twenty at random, even with the browser handshake, and an immediate retry of the same address succeeds.
-      `stream-url` checks the master, but the Nightglass relay fetches it again and passes a 403 straight to the
-      player. Options: (a) the relay retries a refused playlist once (a Nightglass change, the clean fix);
-      (b) Antenne returns one video variant plus its audio as a `track`, which never touches the master but loses
-      adaptive quality. Leaning (a).
+- [ ] **A refused Dailymotion master fails the play** until Nightglass ships its relay retry: a signed master
+      answers 403 (`E005`) on about one fetch in twenty, and the relay now asks a 403 or 5xx once more (commit
+      `f86d7a9` on `plugin-storage`). Check the failure rate once it lands.
 - [ ] **Re-vendor the WIT** once Nightglass merges its `plugin-storage` branch: `wit/provider.wit` comes from commit
       `2fac9af` of that branch, not yet on `master`.
 - [ ] **Overseas viewers.** France TV's country goes to k7, so a viewer in Guadeloupe would get Guadeloupe La 1ère,
