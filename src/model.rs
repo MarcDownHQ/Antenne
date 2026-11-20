@@ -62,6 +62,13 @@ pub struct Playback {
     pub relay: Option<Relay>,
 }
 
+impl Playback {
+    /// Played as is: no headers, no relay.
+    pub fn direct(url: impl Into<String>) -> Self {
+        Playback { url: url.into(), headers: Vec::new(), relay: None }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Media {
     pub content_type: Option<String>,

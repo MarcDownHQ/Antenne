@@ -1,9 +1,9 @@
 //! The plugin's exports, over any [`Http`](crate::host::Http) and [`Storage`](crate::host::Storage).
 
 use crate::catalog::{self, Source};
-use crate::dailymotion;
 use crate::host::{Http, Storage};
 use crate::model::{Catalog, Config, Error, Playback, Preset, ProviderInfo};
+use crate::{dailymotion, francetv};
 
 pub const ID: &str = "antenne";
 pub const NAME: &str = "Antenne";
@@ -26,6 +26,7 @@ pub fn stream_url(http: &impl Http, storage: &impl Storage, _config: &Config, ch
     let entry = catalog::find(channel).ok_or_else(|| Error::BadResponse(format!("unknown channel: {channel}")))?;
     match entry.source {
         Source::Dailymotion { video, embedder } => dailymotion::resolve(http, storage, video, embedder),
+        Source::FranceTv { si_id } => francetv::resolve(http, storage, si_id),
         _ => Err(Error::BadResponse(format!("{} cannot be played yet", entry.name))),
     }
 }
@@ -67,11 +68,18 @@ mod tests {
     }
 
     #[test]
+    fn france_tv_channels_resolve_through_k7() {
+        let storage =
+            FakeStorage::new().with(&crate::francetv::kept_address("006194ea-117d-4bcf-94a9-153d999c59ae"), "https://a.test/f2.m3u8");
+        assert_eq!(stream_url(&FakeHttp::new(), &storage, &Vec::new(), "france-2"), Ok(Playback::direct("https://a.test/f2.m3u8")));
+    }
+
+    #[test]
     fn unknown_channels_and_replays_are_clear_errors() {
         let none = FakeHttp::new();
         assert_eq!(stream_url(&none, &FakeStorage::new(), &Vec::new(), "tf1"), Err(Error::BadResponse("unknown channel: tf1".into())));
         assert!(matches!(catchup_url("cnews"), Err(Error::BadResponse(m)) if m.contains("no replay")));
         assert!(episodes().is_err());
-        assert!(matches!(stream_url(&none, &FakeStorage::new(), &Vec::new(), "france-2"), Err(Error::BadResponse(m)) if m.contains("yet")));
+        assert!(matches!(stream_url(&none, &FakeStorage::new(), &Vec::new(), "bfmtv"), Err(Error::BadResponse(m)) if m.contains("yet")));
     }
 }

@@ -1,0 +1,12 @@
+{
+ "reponse": {
+  "geo_info": {
+   "ip": "2001:db8::1",
+   "country_code": "FR",
+   "timezone": "GMT+1",
+   "continent": "EU",
+   "bw": "5000",
+   "generate-date": "1795169699"
+  }
+ }
+}

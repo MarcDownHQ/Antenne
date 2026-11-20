@@ -1,0 +1,17 @@
+{
+ "video": {
+  "workflow": "token-akamai",
+  "token": "https://hdfauth.ftven.fr/esi/TA?format=json",
+  "format": "hls",
+  "is_live": true,
+  "drm": false,
+  "drm_type": null,
+  "license_type": null,
+  "url": "https://simulcast-b.ftven.fr/simulcast/France_2/hls_fr2/index.m3u8",
+  "live_chunk_delay": 4
+ },
+ "meta": {
+  "title": "France 2 en direct",
+  "additional_title": "Chacun son tour"
+ }
+}

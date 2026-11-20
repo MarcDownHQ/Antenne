@@ -5,6 +5,7 @@
 
 pub mod catalog;
 pub mod dailymotion;
+pub mod francetv;
 pub mod host;
 pub mod model;
 pub mod provider;
