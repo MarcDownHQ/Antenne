@@ -136,8 +136,10 @@ impl Guest for Antenne {
         crate::provider::episodes().map(|()| Vec::new()).map_err(error)
     }
 
-    fn filter(_config: Config, _url: String, media: Media) -> Result<Media, Error> {
-        Ok(media)
+    fn filter(config: Config, url: String, media: Media) -> Result<Media, Error> {
+        let media = model::Media { content_type: media.content_type, body: media.body };
+        let media = crate::provider::filter(&HostStorage, &config, &url, media);
+        Ok(Media { content_type: media.content_type, body: media.body })
     }
 }
 

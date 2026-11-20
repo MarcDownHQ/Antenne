@@ -2,8 +2,8 @@
 
 use crate::catalog::{self, Source};
 use crate::host::{Http, Storage};
-use crate::model::{Catalog, Config, Error, Playback, Preset, ProviderInfo};
-use crate::{bfm, dailymotion, francetv, sites};
+use crate::model::{Catalog, Config, Error, Media, Playback, Preset, ProviderInfo};
+use crate::{bfm, dailymotion, francetv, hls, sites};
 
 pub const ID: &str = "antenne";
 pub const NAME: &str = "Antenne";
@@ -36,6 +36,11 @@ pub fn stream_url(http: &impl Http, storage: &impl Storage, _config: &Config, ch
         Source::TvMonaco => sites::tv_monaco(http),
         Source::Static { url } => Ok(Playback::direct(url)),
     }
+}
+
+/// Every answer of a relayed playback whose relay filters, before the player gets it.
+pub fn filter(storage: &impl Storage, _config: &Config, url: &str, media: Media) -> Media {
+    hls::filter(storage, url, media)
 }
 
 pub fn catchup_url(channel: &str) -> Result<Playback, Error> {
@@ -101,6 +106,12 @@ mod tests {
         assert_eq!(url("20-minutes-tv-idf"), "https://live-20minutestv.digiteka.com/1961167769/index.m3u8");
         assert_eq!(url("tv-monaco"), "https://m.test/a.m3u8");
         assert_eq!(url("kto"), "https://livekto.akamaized.net/hls/live/20000018/ktotv/master.m3u8");
+    }
+
+    #[test]
+    fn filters_relayed_answers() {
+        let media = Media { content_type: None, body: b"segment".to_vec() };
+        assert_eq!(filter(&FakeStorage::new(), &Vec::new(), "https://a.test/1.ts", media.clone()), media);
     }
 
     #[test]

@@ -7,6 +7,7 @@ pub mod bfm;
 pub mod catalog;
 pub mod dailymotion;
 pub mod francetv;
+mod hls;
 pub mod host;
 mod html;
 pub mod model;
