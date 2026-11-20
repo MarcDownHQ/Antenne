@@ -4,6 +4,7 @@
 //! exports of `wit/provider.wit` to it.
 
 pub mod catalog;
+pub mod dailymotion;
 pub mod host;
 pub mod model;
 pub mod provider;

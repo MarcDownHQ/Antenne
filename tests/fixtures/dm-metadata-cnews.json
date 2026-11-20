@@ -1,0 +1,16 @@
+{
+ "id": "x3b68jn",
+ "title": "Live CNEWS",
+ "mode": "live",
+ "stream_type": "live",
+ "live_public_status": "on_air",
+ "protected_delivery": false,
+ "qualities": {
+  "auto": [
+   {
+    "type": "application/x-mpegURL",
+    "url": "https://cdndirector.dailymotion.com/cdn/live/video/x3b68jn.m3u8?sec=SIGNED&dmTs=955537&dmV1st=9A32A535076C00180E27491B178F6507"
+   }
+  ]
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "x9u4hka",
+ "title": "Live CNEWS PRIME",
+ "mode": null,
+ "error": {
+  "title": "Live déconnecté",
+  "message": "Suivre <a target=\"_top\" href=\"https://www.dailymotion.com/CNEWS\" class=\"highlight\">CNEWS</a> pour ne pas rater ses prochains live streams.",
+  "raw_message": "Suivre CNEWS pour ne pas rater ses prochains live streams.",
+  "code": "DM003",
+  "status_code": 403,
+  "refresh": 0
+ }
+}
