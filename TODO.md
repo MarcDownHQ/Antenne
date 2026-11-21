@@ -7,9 +7,9 @@ Small, concrete work: fixes, chores, decisions to make before a roadmap item sta
 
 - [ ] **A refused Dailymotion master fails the play** until Nightglass ships its relay retry: a signed master
       answers 403 (`E005`) on about one fetch in twenty, and the relay now asks a 403 or 5xx once more (commit
-      `f86d7a9` on `plugin-storage`). Check the failure rate once it lands.
+      `e0814b6` on `plugin-storage`). Check the failure rate once it lands.
 - [ ] **Re-vendor the WIT** once Nightglass merges its `plugin-storage` branch: `wit/provider.wit` comes from commit
-      `2fac9af` of that branch, not yet on `master`.
+      `4b675df` of that branch, not yet on `master`.
 - [ ] **Overseas viewers.** France TV's country goes to k7, so a viewer in Guadeloupe would get Guadeloupe La 1ère,
       but the catalog leaves it out. Decide between listing the seven stations for everyone (an error from mainland)
       or a setting.
