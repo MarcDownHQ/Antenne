@@ -1,16 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <title>Antenne</title>
-  <rect width="512" height="512" rx="112" fill="#14213d"/>
-  <g fill="none" stroke="#fca311" stroke-width="28" stroke-linecap="round">
-    <path d="M178 150a110 110 0 0 0 0 156"/>
-    <path d="M334 150a110 110 0 0 1 0 156"/>
-    <path d="M128 100a180 180 0 0 0 0 256"/>
-    <path d="M384 100a180 180 0 0 1 0 256"/>
-  </g>
-  <g stroke="#e5e5e5" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <path d="M256 250 196 432"/>
-    <path d="M256 250 316 432"/>
-    <path d="M218 366h76"/>
-  </g>
-  <circle cx="256" cy="228" r="34" fill="#fca311"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Antenne</title><defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2232"/><stop offset="1" stop-color="#0b0d13"/></linearGradient><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="250" y1="200" x2="780" y2="840"><stop offset="0" stop-color="#ffd59a"/><stop offset="1" stop-color="#f4a25b"/></linearGradient></defs><rect x="48" y="48" width="928" height="928" rx="208" fill="url(#t)"/><rect x="50" y="50" width="924" height="924" rx="206" fill="none" stroke="#fff" stroke-opacity="0.09" stroke-width="4"/>
+<g stroke="url(#g)" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke-width="40">
+<path d="M512 420 400 250M512 420 650 270"/>
+<rect x="250" y="420" width="524" height="380" rx="80"/>
+</g>
+<circle cx="400" cy="250" r="26" fill="url(#g)"/><circle cx="650" cy="270" r="26" fill="url(#g)"/>
+<path transform="translate(512 610) scale(9) translate(-11.75 -12.5)" d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" fill="#b6c6ff"/>
 </svg>
