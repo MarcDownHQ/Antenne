@@ -1,5 +1,5 @@
 // Vendored from github.com/MarcDownHQ/nightglass, windows/wit/provider.wit at commit
-// 4b675dff1cb6c999fadb2c521d19bf93fc451542 (branch plugin-storage). MIT, Copyright (c) 2026 MarcDownHQ.
+// 1c226e66e2b54e9ccfd51d27263125d063708b1a (master, PR #44). MIT, Copyright (c) 2026 MarcDownHQ.
 
 package nightglass:provider@0.2.0;
 

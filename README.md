@@ -10,8 +10,9 @@ video live from Dailymotion, BFM TV and its local channels from bfmtv.com, plus 
 few overseas channels. Every address is found at play time, since most are signed and short-lived.
 
 **Status: 0.1.0, not released yet.** A live check over all 95 channels on 2026-11-20 played every one end to end,
-T18 on a second try: a Dailymotion live fails to start about once in twenty plays, until the Nightglass relay
-retries a refused master (see [TODO.md](TODO.md)). No replay and no programme guide yet (see
+T18 on a second try. A Dailymotion master is refused about once in twenty fetches; the Nightglass relay asks it
+again since [PR #44](https://github.com/MarcDownHQ/nightglass/pull/44), so this needs a Nightglass release that
+includes it (see [TODO.md](TODO.md)). No replay and no programme guide yet (see
 [ROADMAP.md](ROADMAP.md)).
 
 ## Install
