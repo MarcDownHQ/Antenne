@@ -5,8 +5,9 @@ Antenne ships as one file, `antenne.wasm`, a WebAssembly component for `wasm32-w
 
 ## CI
 
-`.github/workflows/ci.yml` runs on the MarcDownHQ self-hosted runner (`[self-hosted, zemmourz0zz]`) on every pull
-request and every push to `master`. `jdx/mise-action` installs what `.mise.toml` pins: Rust with clippy, rustfmt,
+`.github/workflows/ci.yml` runs on GitHub-hosted `ubuntu-24.04` runners on every pull request and every push to
+`master`. The repo is public, and the MarcDownHQ self-hosted runner only takes private repos: a fork's pull request
+would otherwise run its code on that machine. `jdx/mise-action` installs what `.mise.toml` pins: Rust with clippy, rustfmt,
 llvm-tools and the `wasm32-wasip2` target, cargo-llvm-cov and ShellCheck. Two jobs: `check` (the gate in
 [testing.md](testing.md), ending with the component build) and `coverage`.
 
