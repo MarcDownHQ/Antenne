@@ -37,10 +37,21 @@ pub enum Source {
         iframe: &'static str,
     },
     TvMonaco,
+    /// An M6+ live, by its M6+ channel code: Widevine, behind a pairing with the viewer's account.
+    M6plus {
+        code: &'static str,
+    },
     /// An address that does not change.
     Static {
         url: &'static str,
     },
+}
+
+impl Source {
+    /// Whether the live is encrypted, so the app only plays it once the viewer allows protected content.
+    pub const fn protected(self) -> bool {
+        matches!(self, Source::M6plus { .. })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,6 +110,10 @@ const fn fixed(url: &'static str) -> Source {
     Source::Static { url }
 }
 
+const fn m6(code: &'static str) -> Source {
+    Source::M6plus { code }
+}
+
 const fn france_3(id: &'static str, name: &'static str, si_id: &'static str) -> Entry {
     ch(id, name, "Regional", FRANCE_3_LOGO, ftv(si_id))
 }
@@ -140,6 +155,7 @@ pub const CHANNELS: &[Entry] = &[
             ftv("45007886-f3ff-4b3e-9706-1ef1014c5a60"),
         ),
     ),
+    tnt(6, ch("m6", "M6", "National", telerama!(118), m6("M6"))),
     tnt(
         7,
         ch(
@@ -167,7 +183,10 @@ pub const CHANNELS: &[Entry] = &[
         Some("https://s2.dmcdn.net/u/11mWs1h00UU0dxItA/720x720"),
         dm_in("xkxbzc", "https://www.publicsenat.fr/"),
     ),
+    tnt(9, ch("w9", "W9", "National", telerama!(119), m6("W9"))),
+    tnt(12, ch("gulli", "Gulli", "National", telerama!(482), m6("gulli"))),
     tnt(18, ch("t18", "T18", "National", Some("https://s1.dmcdn.net/u/CRoWo1g_t-yODpTe1/720x720"), dm_in("x9jhhyc", "https://t18.fr/"))),
+    tnt(22, ch("6ter", "6ter", "National", telerama!(1403), m6("6T"))),
     // News
     tnt(13, ch("bfmtv", "BFM TV", "News", telerama!(481), bfm("en-direct/"))),
     tnt(14, ch("cnews", "CNews", "News", Some("https://s1.dmcdn.net/u/DhmL1h00UJEql98f/720x720"), dm("x3b68jn"))),
@@ -363,6 +382,7 @@ pub fn load() -> Catalog {
             group: Some(e.group.into()),
             logo: e.logo.map(Into::into),
             stream: link(e.id),
+            protected: e.source.protected(),
         })
         .collect();
     Catalog { channels }
@@ -392,9 +412,13 @@ mod tests {
                 (3, "france-3"),
                 (4, "france-4"),
                 (5, "france-5"),
+                (6, "m6"),
                 (7, "arte"),
                 (8, "lcp"),
+                (9, "w9"),
+                (12, "gulli"),
                 (18, "t18"),
+                (22, "6ter"),
                 (13, "bfmtv"),
                 (14, "cnews"),
                 (16, "franceinfo"),
@@ -417,6 +441,8 @@ mod tests {
         assert_eq!(cnews.number, Some(14));
         assert_eq!(cnews.group.as_deref(), Some("News"));
         assert_eq!(cnews.stream, "https://antenne.invalid/cnews");
+        let protected: Vec<_> = catalog.channels.iter().filter(|c| c.protected).map(|c| c.id.as_str()).collect();
+        assert_eq!(protected, ["m6", "w9", "gulli", "6ter"]);
         let groups: HashSet<_> = catalog.channels.iter().filter_map(|c| c.group.clone()).collect();
         let expected = ["National", "News", "Sport", "Thematic", "International", "Radio", "Regional", "Overseas", "Local"];
         assert_eq!(groups, expected.iter().map(ToString::to_string).collect());
@@ -441,6 +467,7 @@ mod tests {
     fn channels_are_found_by_id() {
         assert_eq!(find("france-2").unwrap().source, Source::FranceTv { si_id: "006194ea-117d-4bcf-94a9-153d999c59ae" });
         assert_eq!(find("tvr").unwrap().source, Source::EasyBroadcast { tenant: "captaprod", event: "54_tvr_vtucuxt" });
+        assert_eq!(find("6ter").unwrap().source, m6("6T"));
         assert_eq!(find("nope"), None);
     }
 }

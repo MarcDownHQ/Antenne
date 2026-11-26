@@ -10,6 +10,7 @@ pub mod francetv;
 mod hls;
 pub mod host;
 mod html;
+pub mod m6plus;
 pub mod model;
 pub mod provider;
 pub mod sites;

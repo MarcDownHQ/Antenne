@@ -62,7 +62,7 @@ pub fn resolve(http: &impl Http, storage: &impl Storage, video: &str, embedder: 
     let _ = storage.set(&kept_master(video), &body, Some(KEPT_FOR), false);
     let ladder_for = if height >= wanted { LADDER_FOR } else { SHORT_LADDER_FOR };
     let _ = storage.set(&kept_ladder(video), &height.to_string(), Some(ladder_for), true);
-    Ok(Playback { url: master, headers: Vec::new(), relay: Some(Relay { browser: Some(BROWSER), filter: true }) })
+    Ok(Playback { url: master, headers: Vec::new(), relay: Some(Relay { browser: Some(BROWSER), filter: true }), drm: None })
 }
 
 fn master_url(http: &impl Http, video: &str, embedder: Option<&str>) -> Result<String, Error> {

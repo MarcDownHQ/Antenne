@@ -11,4 +11,9 @@
   Equidia and its racing feeds, KTO, Gong, TV Monaco, TG+, TVR and other local channels.
 - Addresses are resolved at play time. Dailymotion lives play whole, audio included, through the Nightglass relay,
   cut down to a single encoder.
+- M6, W9, Gulli and 6ter (TNT 6, 9, 12, 22) from M6+, as protected channels: Widevine DASH played by Nightglass with
+  Google's CDM once protected content is on. Sign-in by the M6+ TV pairing code entered on m6.fr; Antenne keeps a
+  device id and the account id, never a password, and asks for a new code when the device is removed from the
+  account.
 - `antenne.wasm` is attached to each GitHub release.
+- Built for the Nightglass plugin contract 0.5.0 (Nightglass PRs #47 and #48); an older Nightglass does not load it.

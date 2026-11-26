@@ -12,6 +12,18 @@ Small, concrete work: fixes, chores, decisions to make before a roadmap item sta
       but the catalog leaves it out. Decide between listing the seven stations for everyone (an error from mainland)
       or a setting.
 
+- [ ] **Nightglass decryption bugs that stop the M6+ channels.** Found on 2026-11-26 against PR #48 (`8f941fd`),
+      reported to Nightglass, worked around outside Antenne for the live check. Require the Nightglass release that
+      fixes them in the README.
+      1. The CDM helper hands Widevine samples with two or more subsample entries, and Widevine 4.10 answers
+         `kNoKey` to every one of them; one entry or none decrypts. H.264 frames with several slices fail, so no
+         M6+ channel plays. Decrypting a `cenc` sample's protected bytes as one run works.
+      2. The helper sends a session's `keys` after the `done` of its `updateSession`; the client reads the keys
+         when `done` arrives, so a license can fail with "The licence holds no key Nightglass may use (none)".
+- [ ] **Play-time prompts.** Nightglass shows an `action-required` from `stream-url` as a 15 s notice and does not
+      ask again, so the viewer must play the channel again after entering the code. Decide with Nightglass whether
+      the player should poll like the Sources screen does.
+
 ## Small work
 
 - [ ] EasyBroadcast with `token_authentication` on appends the token to the master only; the service also wants it

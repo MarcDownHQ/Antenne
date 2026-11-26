@@ -31,7 +31,9 @@ was sent, and `testing::FakeStorage`, which records each value's lifetime and ca
 `tests/fixtures/` holds real answers captured with curl on 2026-11-20, trimmed to what the tests read, with signed
 tokens shortened or replaced: Dailymotion metadata and five masters (one per shape), France TV k7 (a live and a geo
 refusal), geo and hdfauth, a BFM page fragment, the Kick, Equidia, EasyBroadcast and TV Monaco answers, `HDR_VISIO`
-pages and viewer JSON, an Ultimedia player.
+pages and viewer JSON, an Ultimedia player. The M6+ tests use answers written inline in `src/m6plus.rs`, shaped on
+those observed on 2026-11-26 (see [services.md](services.md)), since every real one carries an account id or a
+token; the request signature is checked against a vector computed independently.
 
 ## The live check
 
@@ -43,7 +45,8 @@ cargo run -p antenne-smoke --release -- cnews france-2 bfmtv lcp
 emulation when a request asks for a browser), resolves each channel through `provider::stream_url`, then does what
 the relay and the player would: fetch the master with the playback's headers and handshake, pass it through
 `provider::filter` when the relay filters, and fetch the first variant and the first audio rendition. It fails a
-channel whose master has no variant or no audio. Building it needs cmake (BoringSSL).
+channel whose master has no variant or no audio. Building it needs cmake (BoringSSL). It cannot check the M6+
+channels: they need a pairing and a CDM, so they are checked in Nightglass itself.
 
 ## Sources
 

@@ -37,6 +37,9 @@ follows [brain/glossary.md](brain/glossary.md); the reasons behind the shape are
       Saint-Pierre-et-Miquelon, Wallis et Futuna): offer them to viewers whose France TV country allows them.
 - [ ] Part-time lives (CNews Prime) listed with an "off air" error rather than left out.
 - [ ] Rediscover fixed addresses from their pages (KTO, Gong, viàMaTélé, BIP TV, Tébéo, TéléPaese) when they move.
+- [x] M6+ (M6, W9, Gulli, 6ter) as protected channels, on Nightglass contract 0.5.0. Decided: sign-in by the M6+ TV
+      pairing code only, never a password; the pairing checked before each box token, since M6+ keeps issuing
+      tokens after a removal; the license token carried in the playback's context.
 
 ## Later
 
@@ -46,6 +49,6 @@ follows [brain/glossary.md](brain/glossary.md); the reasons behind the shape are
 
 ## Not planned
 
-- DRM channels (TF1+, M6+, RMC BFM Play, myCanal). Antenne never plays protected content.
+- The other DRM or sign-in channels (TF1+, RMC BFM Play, Novo19, myCanal) for now: each is its own sign-in to build.
 - YouTube lives (RTL, TV7 Bordeaux, LMTV, TLC, TV Vendée): getting HLS out of YouTube is its own problem.
 - Twitch (TL7's event channel).

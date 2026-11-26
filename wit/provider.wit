@@ -1,7 +1,8 @@
 // Vendored from github.com/MarcDownHQ/nightglass, windows/wit/provider.wit at commit
-// 1c226e66e2b54e9ccfd51d27263125d063708b1a (master, PR #44). MIT, Copyright (c) 2026 MarcDownHQ.
+// 8f941fdd64b665a81eaa48978c27a12062b449ec (widevine-cdm, PR #48 on PR #47; unchanged since c9bacb2 of PR #47).
+// MIT, Copyright (c) 2026 MarcDownHQ.
 
-package nightglass:provider@0.2.0;
+package nightglass:provider@0.5.0;
 
 interface types {
     /// A source's settings, keyed by `field.key`. Fields left empty are absent.
@@ -46,7 +47,8 @@ interface types {
         id: string,
         name: string,
         fields: list<field>,
-        /// Channel links are short-lived: `stream-url` is called at play time.
+        /// Links are short-lived: `stream-url`, `movie-url` and `episode-url` are called at play time, and the `stream`
+        /// of a movie or an episode can be any text the plugin reads back there, not only an address.
         resolves-streams: bool,
         presets: list<preset>,
     }
@@ -60,8 +62,11 @@ interface types {
         epg-id: option<string>,
         %stream: string,
         headers: list<tuple<string, string>>,
-        /// Days of replay the server keeps.
-        catchup-days: option<s64>,
+        /// Seconds of past programmes the server can replay.
+        catchup-window: option<u32>,
+        /// Encrypted with a DRM: the app greys it out until the user allows protected content, and its playback carries a
+        /// `drm`.
+        protected: bool,
     }
 
     record movie {
@@ -72,6 +77,13 @@ interface types {
         %stream: string,
         rating: option<f64>,
         plot: option<string>,
+        /// Seconds.
+        duration: option<u32>,
+        /// Unix seconds, for a replay that expires.
+        available-until: option<s64>,
+        /// Encrypted with a DRM: the app greys it out until the user allows protected content, and its playback carries a
+        /// `drm`.
+        protected: bool,
     }
 
     record series {
@@ -86,10 +98,22 @@ interface types {
     record episode {
         id: string,
         title: string,
-        season: s64,
-        number: s64,
+        /// Dated broadcasts (news, magazines) have neither season nor number.
+        season: option<s64>,
+        number: option<s64>,
         %stream: string,
         plot: option<string>,
+        /// Unix seconds.
+        aired: option<s64>,
+        /// Seconds.
+        duration: option<u32>,
+        /// A still of this episode, http(s); the series' poster stands for the show.
+        thumbnail: option<string>,
+        /// Unix seconds, for a replay that expires.
+        available-until: option<s64>,
+        /// Encrypted with a DRM: the app greys it out until the user allows protected content, and its playback carries a
+        /// `drm`.
+        protected: bool,
     }
 
     /// A guide entry, matched to channels by `epg-id`. Times are Unix seconds.
@@ -140,6 +164,59 @@ interface types {
         title: option<string>,
     }
 
+    /// A chapter of a movie or an episode: the seek bar marks it and the player can jump to it.
+    record chapter {
+        /// Seconds from the start.
+        start: f64,
+        title: string,
+    }
+
+    /// The DRM systems the app can play.
+    enum key-system {
+        widevine,
+    }
+
+    /// What `playback.url` points to.
+    enum manifest {
+        dash,
+        hls,
+    }
+
+    /// An encrypted stream. The app relays it, gets its keys through the `license` export and hands the player a clear
+    /// stream; it plays only once the user has allowed protected content.
+    record drm {
+        key-system: key-system,
+        manifest: manifest,
+        /// The service certificate, given to the CDM before any license request. Without it, the first `license` call
+        /// may ask for it (`license-kind.certificate`).
+        certificate: option<list<u8>>,
+        /// A whole `pssh` box, for streams whose manifest and init segments carry none.
+        pssh: option<list<u8>>,
+        /// Handed back to `license` as is: a license address, a token, whatever the plugin needs. The app doesn't read it.
+        context: string,
+    }
+
+    /// What a CDM message asks the license server for.
+    enum license-kind {
+        /// The keys of a new session.
+        request,
+        renewal,
+        release,
+        /// The service certificate, when `drm.certificate` is none.
+        certificate,
+    }
+
+    /// A message from the CDM, for the plugin to send to its license server the way the service wants it.
+    record license-request {
+        kind: license-kind,
+        /// The CDM's bytes, unchanged.
+        challenge: list<u8>,
+        /// The `url` of the playback this license is for.
+        url: string,
+        /// Its `drm.context`.
+        context: string,
+    }
+
     /// What the player opens.
     record playback {
         url: string,
@@ -148,12 +225,27 @@ interface types {
         relay: option<relay>,
         /// Played alongside `url`, with the same headers and relay, in order of preference.
         tracks: list<track>,
+        /// In any order; those without a title are left out.
+        chapters: list<chapter>,
+        /// Set when the stream is encrypted. The app then relays it, with `relay`'s options when given.
+        drm: option<drm>,
     }
 
     /// A playlist, segment or key on its way to the player.
     record media {
         content-type: option<string>,
         body: list<u8>,
+    }
+
+    /// Something the user must do outside the app before the plugin can go on: open `url` and enter `code` there, for
+    /// instance to sign in on another device.
+    record prompt {
+        message: string,
+        /// http(s); the app opens it in the system browser.
+        url: option<string>,
+        code: option<string>,
+        /// Seconds before the app asks again, while it shows the prompt.
+        retry-in: option<u32>,
     }
 
     variant error {
@@ -164,6 +256,9 @@ interface types {
         network(string),
         /// The named setting is missing or invalid.
         setting(string),
+        /// The user must do something outside the app (e.g. open `url` and enter `code`). The app shows the prompt and
+        /// asks again after `retry-in` seconds (kept between 2 and 3600) while it is shown, or when the user presses Retry.
+        action-required(prompt),
     }
 }
 
@@ -217,7 +312,7 @@ world provider {
     import storage;
     import log;
 
-    use types.{config, provider-info, catalog, channel, series, episode, playback, media, error};
+    use types.{config, provider-info, catalog, channel, movie, series, episode, playback, media, license-request, error};
 
     export describe: func() -> provider-info;
     export load-catalog: func(config: config) -> result<catalog, error>;
@@ -225,7 +320,14 @@ world provider {
     export stream-url: func(config: config, channel: channel) -> result<playback, error>;
     export catchup-url: func(config: config, channel: channel, start: s64, end: s64) -> result<playback, error>;
     export episodes: func(config: config, series: series) -> result<list<episode>, error>;
+    /// Only called when `resolves-streams` is set.
+    export movie-url: func(config: config, movie: movie) -> result<playback, error>;
+    /// Only called when `resolves-streams` is set.
+    export episode-url: func(config: config, series: series, episode: episode) -> result<playback, error>;
     /// Only called while the app relays a playback whose `relay.filter` is set: an answer from `url`, changed before
     /// the player gets it.
     export filter: func(config: config, url: string, media: media) -> result<media, error>;
+    /// Only called while the app plays a playback that has a `drm`: sends `request.challenge` to the service's license
+    /// server, wrapped as the service wants it, and returns the answer unwrapped to the bytes the CDM reads.
+    export license: func(config: config, request: license-request) -> result<list<u8>, error>;
 }

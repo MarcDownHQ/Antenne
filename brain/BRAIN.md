@@ -6,7 +6,8 @@ doc disagrees with it, fix the doc. The services are the source of truth for the
 with a date, in [architecture/services.md](architecture/services.md).
 
 Antenne is a Nightglass provider plugin. Nightglass loads `antenne.wasm`, asks it for its channel list, and calls it
-again each time a channel is played; Antenne then asks the channel's service for a fresh live address.
+again each time a channel is played; Antenne then asks the channel's service for a fresh live address. For the four
+M6+ channels, which are Widevine, Nightglass also calls it for each license.
 
 ## Topics
 
@@ -30,7 +31,9 @@ again each time a channel is played; Antenne then asks the channel's service for
 | Why would a Dailymotion live play without sound, or out of sync? | [features/dailymotion.md](features/dailymotion.md) |
 | What does `filter` change, and what does it leave alone? | [features/dailymotion.md](features/dailymotion.md) |
 | How is a France TV live signed, and for how long does it play? | [features/france-tv.md](features/france-tv.md) |
-| What happens with DRM? | [features/france-tv.md](features/france-tv.md), [features/dailymotion.md](features/dailymotion.md) |
+| What happens with DRM? | [features/m6plus.md](features/m6plus.md), [decisions.md](decisions.md), [features/france-tv.md](features/france-tv.md), [features/dailymotion.md](features/dailymotion.md) |
+| How does M6+ sign in, and what happens when the viewer removes the device? | [features/m6plus.md](features/m6plus.md) |
+| What does the `license` export send, and where? | [features/m6plus.md](features/m6plus.md), [architecture/services.md](architecture/services.md) |
 | How are BFM, Kick, Equidia and the local players resolved? | [features/players.md](features/players.md) |
 | What does Antenne keep in storage, and for how long? | [architecture/overview.md](architecture/overview.md) |
 | How is it tested without the network, and how is it checked live? | [architecture/testing.md](architecture/testing.md) |

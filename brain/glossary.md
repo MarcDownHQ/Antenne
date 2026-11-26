@@ -36,3 +36,17 @@ page, an API, a fixed address.
 only serve pages of their own site.
 
 **TNT**: French digital terrestrial television; its channel numbers are set by ARCOM, the regulator.
+
+**Protected channel**: a channel whose live is encrypted with Widevine (`protected` in the WIT). Nightglass plays it
+only once the viewer allows protected content, with Google's CDM.
+
+**CDM**: Content Decryption Module, Google's Widevine library that Nightglass downloads and runs; it turns a license
+into keys. Antenne only relays its messages.
+
+**License token**: DRMtoday's "upfront" token for one account and one M6+ channel, sent as `x-dt-auth-token` with
+every license request.
+
+**Pairing code**: the five letters M6+ gives a TV, which the viewer enters at m6.fr/device-pairing to link that TV to
+their account.
+
+**Box token**: the 30-minute JWT M6+ gives a paired TV (`getJwt`), sent as a bearer token to its other services.
