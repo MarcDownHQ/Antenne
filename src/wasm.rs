@@ -70,6 +70,7 @@ fn from_error(e: Error) -> model::Error {
         Error::BadResponse(m) => model::Error::BadResponse(m),
         Error::Network(m) => model::Error::Network(m),
         Error::Setting(m) => model::Error::Setting(m),
+        Error::ActionRequired(p) => model::Error::BadResponse(p.message),
     }
 }
 
@@ -79,6 +80,8 @@ fn playback(p: model::Playback) -> Playback {
         headers: p.headers,
         relay: p.relay.map(|r| nightglass::provider::types::Relay { browser: r.browser.map(browser), filter: r.filter }),
         tracks: Vec::new(),
+        chapters: Vec::new(),
+        drm: None,
     }
 }
 
@@ -92,7 +95,8 @@ fn channel(c: model::Channel) -> Channel {
         epg_id: None,
         stream: c.stream,
         headers: Vec::new(),
-        catchup_days: None,
+        catchup_window: None,
+        protected: false,
     }
 }
 
@@ -136,10 +140,22 @@ impl Guest for Antenne {
         crate::provider::episodes().map(|()| Vec::new()).map_err(error)
     }
 
+    fn movie_url(_config: Config, movie: Movie) -> Result<Playback, Error> {
+        crate::provider::video_url(&movie.id).map(playback).map_err(error)
+    }
+
+    fn episode_url(_config: Config, _series: Series, episode: Episode) -> Result<Playback, Error> {
+        crate::provider::video_url(&episode.id).map(playback).map_err(error)
+    }
+
     fn filter(config: Config, url: String, media: Media) -> Result<Media, Error> {
         let media = model::Media { content_type: media.content_type, body: media.body };
         let media = crate::provider::filter(&HostStorage, &config, &url, media);
         Ok(Media { content_type: media.content_type, body: media.body })
+    }
+
+    fn license(_config: Config, request: LicenseRequest) -> Result<Vec<u8>, Error> {
+        crate::provider::license(&request.url).map_err(error)
     }
 }
 

@@ -51,6 +51,14 @@ pub fn episodes() -> Result<(), Error> {
     Err(Error::BadResponse("Antenne has live channels only".into()))
 }
 
+pub fn video_url(video: &str) -> Result<Playback, Error> {
+    Err(Error::BadResponse(format!("Antenne has live channels only ({video})")))
+}
+
+pub fn license(url: &str) -> Result<Vec<u8>, Error> {
+    Err(Error::BadResponse(format!("Antenne plays no protected stream ({url})")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,5 +128,7 @@ mod tests {
         assert_eq!(stream_url(&none, &FakeStorage::new(), &Vec::new(), "tf1"), Err(Error::BadResponse("unknown channel: tf1".into())));
         assert!(matches!(catchup_url("cnews"), Err(Error::BadResponse(m)) if m.contains("no replay")));
         assert!(episodes().is_err());
+        assert!(matches!(video_url("jt-20h"), Err(Error::BadResponse(m)) if m.contains("live channels only")));
+        assert!(matches!(license("https://a.test/a.mpd"), Err(Error::BadResponse(m)) if m.contains("no protected stream")));
     }
 }
