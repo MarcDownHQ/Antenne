@@ -2,17 +2,22 @@
 //! viewer enters on m6.fr, then keeps the device and the account, never a password.
 
 use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use hmac::{Hmac, KeyInit, Mac};
 use serde_json::Value;
 use sha1::Sha1;
 
-use crate::host::{Http, Request, Storage, encode};
-use crate::model::{Error, Prompt};
+use crate::host::{Http, Request, Response, Storage, encode};
+use crate::model::{Drm, Error, LicenseRequest, Manifest, Playback, Prompt};
 
 pub const PAIRING_URL: &str = "https://www.m6.fr/device-pairing";
 const USERS: &str = "https://6play-users.6play.fr";
 const AUTH: &str = "https://front-auth.6cloud.fr";
+const LIVES: &str = "https://hbbtv.middleware.6play.fr/6play/v2/platforms/smarttv/services/6play/live";
+const UPFRONT: &str = "https://drm.6cloud.fr/v1/customers/m6web/platforms/smarttv/services/6play/users";
+pub const LICENSE: &str = "https://lic.drmtoday.com/license-proxy-widevine/cenc/";
+/// The plain DASH live; the other assets go through an ad server that does not resolve from France.
+const ASSET: &str = "delta_dashcenc_h264";
 const SALT: &str = "da39a3ee5e6b4b0d3255bfef95601890afd80709";
 pub const CUSTOMER: &str = "m6web";
 /// How often the M6+ TV apps ask whether the code was entered, and how long they show one.
@@ -52,6 +57,82 @@ pub fn session(http: &impl Http, storage: &impl Storage, now: u64) -> Result<Ses
 /// Drops the kept token, which a service refused.
 pub fn forget_token(storage: &impl Storage) {
     storage.delete(TOKEN);
+}
+
+/// The live of the channel with this M6+ code: its DASH manifest, Widevine, and in the context what `license` needs.
+pub fn resolve(http: &impl Http, storage: &impl Storage, code: &str, now: u64) -> Result<Playback, Error> {
+    let session = session(http, storage, now)?;
+    let url = manifest(http, code)?;
+    let token = license_token(http, storage, &session, code, now)?;
+    let context = serde_json::json!({ "channel": code, "token": token }).to_string();
+    let drm = Drm { manifest: Manifest::Dash, certificate: None, pssh: None, context };
+    Ok(Playback { drm: Some(drm), ..Playback::direct(url) })
+}
+
+/// Sends the CDM's message to `DRMtoday` with the channel's license token, and a fresh token if that one is refused.
+pub fn license(http: &impl Http, storage: &impl Storage, request: &LicenseRequest, now: u64) -> Result<Vec<u8>, Error> {
+    let context: Value = serde_json::from_str(&request.context).unwrap_or_default();
+    let (Some(code), Some(token)) = (context["channel"].as_str(), context["token"].as_str()) else {
+        return Err(Error::BadResponse(format!("not an M6+ playback: {}", request.url)));
+    };
+    let send = |token: &str| {
+        let post = Request::post(LICENSE, request.challenge.clone())
+            .header("Content-Type", "application/octet-stream")
+            .header("x-dt-auth-token", token);
+        http.send(&post)
+    };
+    let mut response = send(token)?;
+    if !response.ok() {
+        let session = session(http, storage, now)?;
+        response = send(&license_token(http, storage, &session, code, now)?)?;
+    }
+    unwrap_license(&response)
+}
+
+fn manifest(http: &impl Http, code: &str) -> Result<String, Error> {
+    let lives = http.json(&Request::get(format!("{LIVES}?channel={}", encode(code))).header("X-Customer-Name", CUSTOMER))?;
+    let assets = lives[code][0]["live"]["assets"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let dash: Vec<_> = assets.iter().filter(|a| a["type"] == ASSET).collect();
+    dash.iter()
+        .find(|a| a["video_quality"] == "hd")
+        .or_else(|| dash.first())
+        .and_then(|a| a["full_physical_path"].as_str())
+        .map(Into::into)
+        .ok_or_else(|| Error::BadResponse(format!("M6+ lists no live for {code}")))
+}
+
+/// `DRMtoday`'s token for this channel's licenses. A refused box token is renewed once.
+fn license_token(http: &impl Http, storage: &impl Storage, session: &Session, code: &str, now: u64) -> Result<String, Error> {
+    let ask = |session: &Session| {
+        let url = format!("{UPFRONT}/{}/live/dashcenc_{code}/upfront-token", session.account);
+        http.send(&Request::get(url).header("Authorization", &format!("Bearer {}", session.token)).header("X-Customer-Name", CUSTOMER))
+    };
+    let mut response = ask(session)?;
+    if matches!(response.status, 401 | 403 | 498) {
+        forget_token(storage);
+        response = ask(&self::session(http, storage, now)?)?;
+    }
+    if !response.ok() {
+        return Err(Error::Http(response.status));
+    }
+    let answer: Value = serde_json::from_slice(&response.body).unwrap_or_default();
+    answer["token"].as_str().map(Into::into).ok_or_else(|| Error::BadResponse(format!("M6+ gave no license token for {code}")))
+}
+
+/// `DRMtoday` wraps the license in JSON, base64 in `license`.
+fn unwrap_license(response: &Response) -> Result<Vec<u8>, Error> {
+    if !response.ok() {
+        let code = response.header("x-dt-resp-code").unwrap_or("none");
+        return Err(Error::BadResponse(format!("M6+ license refused: HTTP {}, DRMtoday code {code}", response.status)));
+    }
+    if !response.body.starts_with(b"{") {
+        return Ok(response.body.clone());
+    }
+    let answer: Value = serde_json::from_slice(&response.body).unwrap_or_default();
+    match (answer["status"].as_str(), answer["license"].as_str()) {
+        (Some("OK"), Some(license)) => STANDARD.decode(license).map_err(|e| Error::BadResponse(format!("M6+ license: {e}"))),
+        (status, _) => Err(Error::BadResponse(format!("M6+ license refused: {}", status.unwrap_or("no status")))),
+    }
 }
 
 fn device(storage: &impl Storage) -> Result<String, Error> {
@@ -310,6 +391,125 @@ pub mod tests {
         assert!(matches!(session(&http, &paired(), NOW), Err(Error::BadResponse(m)) if m.contains("token")));
         let http = FakeHttp::new().answer(USERS_OF_D1, Ok(Response { status: 498, headers: Vec::new(), body: Vec::new() }));
         assert_eq!(session(&http, &paired(), NOW), Err(Error::Http(498)));
+    }
+
+    pub const LIVE_M6: &str = "https://hbbtv.middleware.6play.fr/6play/v2/platforms/smarttv/services/6play/live?channel=M6";
+    pub const UPFRONT_M6: &str =
+        "https://drm.6cloud.fr/v1/customers/m6web/platforms/smarttv/services/6play/users/u1/live/dashcenc_M6/upfront-token";
+    const LIVE: &str = r#"{"M6":[{"live":{"assets":[
+        {"type":"noyo_dashcenc_h264","video_quality":"hd","full_physical_path":"https://ads.test/m6.mpd"},
+        {"type":"delta_dashcenc_h264","video_quality":"sd","full_physical_path":"https://m6.test/dash-short-hd720.mpd"},
+        {"type":"delta_dashcenc_h264","video_quality":"hd","full_physical_path":"https://m6.test/dash-short-hd.mpd"}]}}]}"#;
+
+    fn context(token: &str) -> String {
+        serde_json::json!({ "channel": "M6", "token": token }).to_string()
+    }
+
+    fn challenge(context: &str) -> LicenseRequest {
+        LicenseRequest {
+            kind: crate::model::LicenseKind::Request,
+            challenge: vec![8, 1, 2],
+            url: "https://m6.test/dash-short-hd.mpd".into(),
+            context: context.into(),
+        }
+    }
+
+    fn refused(status: u16, code: &str) -> Response {
+        Response { status, headers: vec![("X-Dt-Resp-Code".into(), code.into())], body: b"<html>".to_vec() }
+    }
+
+    #[test]
+    fn a_live_is_its_hd_dash_manifest_with_a_license_token() {
+        let http = FakeHttp::new().on(LIVE_M6, 200, LIVE).on(UPFRONT_M6, 200, r#"{"token":"up"}"#);
+        let playback = resolve(&http, &paired().with(TOKEN, "box"), "M6", NOW).unwrap();
+        assert_eq!(playback.url, "https://m6.test/dash-short-hd.mpd");
+        assert_eq!((playback.headers.len(), playback.relay), (0, None));
+        let drm = playback.drm.unwrap();
+        assert_eq!((drm.manifest, drm.certificate, drm.pssh), (Manifest::Dash, None, None));
+        assert_eq!(serde_json::from_str::<Value>(&drm.context).unwrap(), serde_json::json!({ "channel": "M6", "token": "up" }));
+        let sent = http.sent();
+        assert_eq!(header(&sent[0], "X-Customer-Name"), Some("m6web"));
+        assert_eq!(header(&sent[1], "Authorization"), Some("Bearer box"));
+    }
+
+    #[test]
+    fn without_an_hd_asset_any_plain_dash_one_does() {
+        let sd = r#"{"M6":[{"live":{"assets":[{"type":"delta_dashcenc_h264","video_quality":"sd","full_physical_path":"https://m6.test/sd.mpd"}]}}]}"#;
+        let http = FakeHttp::new().on(LIVE_M6, 200, sd).on(UPFRONT_M6, 200, r#"{"token":"up"}"#);
+        assert_eq!(resolve(&http, &paired().with(TOKEN, "box"), "M6", NOW).unwrap().url, "https://m6.test/sd.mpd");
+        let none = FakeHttp::new().on(LIVE_M6, 200, r#"{"M6":[]}"#);
+        assert!(matches!(resolve(&none, &paired().with(TOKEN, "box"), "M6", NOW), Err(Error::BadResponse(m)) if m.contains("no live")));
+    }
+
+    #[test]
+    fn a_live_needs_the_pairing_first() {
+        let http = FakeHttp::new().on(START, 200, r#"{"token":"ABCDE"}"#);
+        assert_eq!(resolve(&http, &FakeStorage::new().with(DEVICE, "d1"), "M6", NOW), Err(code_prompt("ABCDE")));
+        assert_eq!(http.urls(), [START]);
+    }
+
+    #[test]
+    fn a_refused_box_token_is_renewed_once() {
+        let storage = paired().with(TOKEN, "stale");
+        let http = FakeHttp::new()
+            .on(LIVE_M6, 200, LIVE)
+            .answer(UPFRONT_M6, Ok(refused(498, "")))
+            .on(UPFRONT_M6, 200, r#"{"token":"up"}"#)
+            .on(USERS_OF_D1, 200, r#"[{"uid":"u1"}]"#)
+            .on(JWT, 200, &format!(r#"{{"token":"{BOX_TOKEN}"}}"#));
+        assert!(resolve(&http, &storage, "M6", NOW).is_ok());
+        assert_eq!(header(&http.sent()[4], "Authorization"), Some(format!("Bearer {BOX_TOKEN}").as_str()));
+        assert_eq!(storage.get(TOKEN).as_deref(), Some(BOX_TOKEN));
+        let http = FakeHttp::new().on(LIVE_M6, 200, LIVE).answer(UPFRONT_M6, Ok(refused(500, "")));
+        assert_eq!(resolve(&http, &paired().with(TOKEN, "box"), "M6", NOW), Err(Error::Http(500)));
+        let http = FakeHttp::new().on(LIVE_M6, 200, LIVE).on(UPFRONT_M6, 200, "{}");
+        assert!(
+            matches!(resolve(&http, &paired().with(TOKEN, "box"), "M6", NOW), Err(Error::BadResponse(m)) if m.contains("license token"))
+        );
+    }
+
+    #[test]
+    fn a_license_is_unwrapped_from_drmtoday_json() {
+        let http = FakeHttp::new().on(LICENSE, 200, r#"{"status":"OK","license":"CAUSAQ==","service_version_info":{}}"#);
+        assert_eq!(license(&http, &FakeStorage::new(), &challenge(&context("up")), NOW), Ok(vec![8, 5, 18, 1]));
+        let post = &http.sent()[0];
+        assert_eq!((post.method.as_str(), post.body.as_deref()), ("POST", Some(&[8u8, 1, 2][..])));
+        assert_eq!(header(post, "x-dt-auth-token"), Some("up"));
+        assert_eq!(header(post, "Content-Type"), Some("application/octet-stream"));
+    }
+
+    #[test]
+    fn a_bare_license_is_passed_as_is() {
+        let http = FakeHttp::new().on(LICENSE, 200, "\u{8}\u{5}");
+        assert_eq!(license(&http, &FakeStorage::new(), &challenge(&context("up")), NOW), Ok(vec![8, 5]));
+    }
+
+    #[test]
+    fn a_refused_license_token_is_replaced_once() {
+        let http = FakeHttp::new().answer(LICENSE, Ok(refused(403, "41"))).on(LICENSE, 200, r#"{"status":"OK","license":"CAU="}"#).on(
+            UPFRONT_M6,
+            200,
+            r#"{"token":"fresh"}"#,
+        );
+        assert_eq!(license(&http, &paired().with(TOKEN, "box"), &challenge(&context("old")), NOW), Ok(vec![8, 5]));
+        assert_eq!(header(&http.sent()[2], "x-dt-auth-token"), Some("fresh"));
+        let http = FakeHttp::new().answer(LICENSE, Ok(refused(400, "10001"))).on(UPFRONT_M6, 200, r#"{"token":"fresh"}"#);
+        let refused = license(&http, &paired().with(TOKEN, "box"), &challenge(&context("old")), NOW);
+        assert_eq!(refused, Err(Error::BadResponse("M6+ license refused: HTTP 400, DRMtoday code 10001".into())));
+    }
+
+    #[test]
+    fn license_failures_are_errors() {
+        let none = FakeHttp::new();
+        assert!(
+            matches!(license(&none, &FakeStorage::new(), &challenge("tf1"), NOW), Err(Error::BadResponse(m)) if m.contains("not an M6+"))
+        );
+        let unwrap = |body: &str| unwrap_license(&Response { status: 200, headers: Vec::new(), body: body.as_bytes().to_vec() });
+        assert_eq!(unwrap(r#"{"status":"ERROR"}"#), Err(Error::BadResponse("M6+ license refused: ERROR".into())));
+        assert_eq!(unwrap("{}"), Err(Error::BadResponse("M6+ license refused: no status".into())));
+        assert!(matches!(unwrap(r#"{"status":"OK","license":"!"}"#), Err(Error::BadResponse(m)) if m.starts_with("M6+ license:")));
+        let missing = unwrap_license(&Response { status: 401, headers: Vec::new(), body: Vec::new() });
+        assert_eq!(missing, Err(Error::BadResponse("M6+ license refused: HTTP 401, DRMtoday code none".into())));
     }
 
     #[test]

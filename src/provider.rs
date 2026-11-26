@@ -3,7 +3,7 @@
 use crate::catalog::{self, Source};
 use crate::host::{Http, Storage};
 use crate::model::{Catalog, Config, Error, LicenseRequest, Media, Playback, Preset, ProviderInfo};
-use crate::{bfm, dailymotion, francetv, hls, sites};
+use crate::{bfm, dailymotion, francetv, hls, m6plus, sites};
 
 pub const ID: &str = "antenne";
 pub const NAME: &str = "Antenne";
@@ -34,6 +34,7 @@ pub fn stream_url(http: &impl Http, storage: &impl Storage, _config: &Config, ch
         Source::HdrVisio { page } => sites::hdr_visio(http, page),
         Source::Digiteka { iframe } => sites::digiteka(http, iframe),
         Source::TvMonaco => sites::tv_monaco(http),
+        Source::M6plus { code } => m6plus::resolve(http, storage, code, now()),
         Source::Static { url } => Ok(Playback::direct(url)),
     }
 }
@@ -56,8 +57,12 @@ pub fn video_url(video: &str) -> Result<Playback, Error> {
 }
 
 /// The license server's answer to a message of the host's CDM, for a playback whose `drm` Antenne gave.
-pub fn license(_http: &impl Http, _storage: &impl Storage, _config: &Config, request: &LicenseRequest) -> Result<Vec<u8>, Error> {
-    Err(Error::BadResponse(format!("Antenne plays no protected stream ({})", request.url)))
+pub fn license(http: &impl Http, storage: &impl Storage, _config: &Config, request: &LicenseRequest) -> Result<Vec<u8>, Error> {
+    m6plus::license(http, storage, request, now())
+}
+
+fn now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
 #[cfg(test)]
@@ -118,6 +123,24 @@ mod tests {
     }
 
     #[test]
+    fn m6_plus_channels_resolve_to_a_widevine_live_and_get_their_license() {
+        use crate::m6plus::tests::{LIVE_M6, UPFRONT_M6, paired};
+        let live = r#"{"M6":[{"live":{"assets":[{"type":"delta_dashcenc_h264","video_quality":"hd","full_physical_path":"https://m6.test/a.mpd"}]}}]}"#;
+        let http = FakeHttp::new().on(LIVE_M6, 200, live).on(UPFRONT_M6, 200, r#"{"token":"up"}"#).on(
+            m6plus::LICENSE,
+            200,
+            r#"{"status":"OK","license":"CAU="}"#,
+        );
+        let storage = paired().with(m6plus::TOKEN, "box");
+        let playback = stream_url(&http, &storage, &Vec::new(), "m6").unwrap();
+        assert_eq!(playback.url, "https://m6.test/a.mpd");
+        let drm = playback.drm.unwrap();
+        let request =
+            LicenseRequest { kind: crate::model::LicenseKind::Certificate, challenge: vec![8, 4], url: playback.url, context: drm.context };
+        assert_eq!(license(&http, &storage, &Vec::new(), &request), Ok(vec![8, 5]));
+    }
+
+    #[test]
     fn filters_relayed_answers() {
         let media = Media { content_type: None, body: b"segment".to_vec() };
         assert_eq!(filter(&FakeStorage::new(), &Vec::new(), "https://a.test/1.ts", media.clone()), media);
@@ -137,6 +160,6 @@ mod tests {
             context: String::new(),
         };
         let refused = license(&none, &FakeStorage::new(), &Vec::new(), &request);
-        assert!(matches!(refused, Err(Error::BadResponse(m)) if m.contains("no protected stream")));
+        assert!(matches!(refused, Err(Error::BadResponse(m)) if m.contains("not an M6+ playback")));
     }
 }
