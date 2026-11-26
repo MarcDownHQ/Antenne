@@ -20,6 +20,10 @@ impl Request {
         Request { method: "GET".into(), url: url.into(), headers: Vec::new(), body: None, browser: None }
     }
 
+    pub fn post(url: impl Into<String>, body: Vec<u8>) -> Self {
+        Request { method: "POST".into(), body: Some(body), ..Request::get(url) }
+    }
+
     #[must_use]
     pub fn header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.into(), value.into()));
@@ -103,6 +107,8 @@ mod tests {
         assert_eq!(r.headers, vec![("Referer".to_string(), "https://b.test/".to_string())]);
         assert_eq!(r.browser, Some(Browser::Firefox));
         assert_eq!(r.body, None);
+        let r = Request::post("https://a.test/", b"{}".to_vec());
+        assert_eq!((r.method.as_str(), r.body.as_deref()), ("POST", Some(&b"{}"[..])));
     }
 
     #[test]

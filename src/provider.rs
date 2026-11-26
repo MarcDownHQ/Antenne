@@ -2,7 +2,7 @@
 
 use crate::catalog::{self, Source};
 use crate::host::{Http, Storage};
-use crate::model::{Catalog, Config, Error, Media, Playback, Preset, ProviderInfo};
+use crate::model::{Catalog, Config, Error, LicenseRequest, Media, Playback, Preset, ProviderInfo};
 use crate::{bfm, dailymotion, francetv, hls, sites};
 
 pub const ID: &str = "antenne";
@@ -55,8 +55,9 @@ pub fn video_url(video: &str) -> Result<Playback, Error> {
     Err(Error::BadResponse(format!("Antenne has live channels only ({video})")))
 }
 
-pub fn license(url: &str) -> Result<Vec<u8>, Error> {
-    Err(Error::BadResponse(format!("Antenne plays no protected stream ({url})")))
+/// The license server's answer to a message of the host's CDM, for a playback whose `drm` Antenne gave.
+pub fn license(_http: &impl Http, _storage: &impl Storage, _config: &Config, request: &LicenseRequest) -> Result<Vec<u8>, Error> {
+    Err(Error::BadResponse(format!("Antenne plays no protected stream ({})", request.url)))
 }
 
 #[cfg(test)]
@@ -129,6 +130,13 @@ mod tests {
         assert!(matches!(catchup_url("cnews"), Err(Error::BadResponse(m)) if m.contains("no replay")));
         assert!(episodes().is_err());
         assert!(matches!(video_url("jt-20h"), Err(Error::BadResponse(m)) if m.contains("live channels only")));
-        assert!(matches!(license("https://a.test/a.mpd"), Err(Error::BadResponse(m)) if m.contains("no protected stream")));
+        let request = LicenseRequest {
+            kind: crate::model::LicenseKind::Request,
+            challenge: vec![8, 1],
+            url: "https://a.test/a.mpd".into(),
+            context: String::new(),
+        };
+        let refused = license(&none, &FakeStorage::new(), &Vec::new(), &request);
+        assert!(matches!(refused, Err(Error::BadResponse(m)) if m.contains("no protected stream")));
     }
 }

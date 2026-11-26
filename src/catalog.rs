@@ -363,6 +363,7 @@ pub fn load() -> Catalog {
             group: Some(e.group.into()),
             logo: e.logo.map(Into::into),
             stream: link(e.id),
+            protected: false,
         })
         .collect();
     Catalog { channels }
