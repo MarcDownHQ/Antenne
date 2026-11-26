@@ -1,8 +1,8 @@
 # Antenne
 
 A [Nightglass](https://github.com/MarcDownHQ/nightglass) plugin, built as a WebAssembly component
-(`wasm32-wasip2`), that adds French live TV channels with no DRM: France Télévisions, Dailymotion lives (CNews,
-L'Équipe, the radios), BFM, and local stations. Start with `brain/BRAIN.md` to find how anything works; `ROADMAP.md`
+(`wasm32-wasip2`), that adds French live TV channels: France Télévisions, Dailymotion lives (CNews, L'Équipe, the
+radios), BFM, local stations, and the M6+ channels (M6, W9, Gulli, 6ter), which are Widevine. Start with `brain/BRAIN.md` to find how anything works; `ROADMAP.md`
 is the agreed backlog, `TODO.md` the small work and open decisions.
 
 ## The brain
@@ -30,8 +30,11 @@ fact about a service goes into `brain/architecture/services.md` with the date it
   longer than what it keeps stays valid (see `brain/features/`). A storage failure never fails playback.
 - **Host limits**: `describe` 10 s, other calls 5 min, `filter` 30 s. `filter` runs on every answer of a filtered
   relay, segments included: anything that is not a Dailymotion master passes through untouched and fast.
-- **No DRM, ever.** A source that reports DRM (France TV `video.drm`, Dailymotion `protected_delivery`) is an error,
-  not something to work around.
+- **DRM only through the host.** A protected channel's playback carries `drm` and Antenne only relays license
+  messages through the `license` export; it never handles keys or media. A source that also has clear streams and
+  reports DRM (France TV `video.drm`, Dailymotion `protected_delivery`) is still an error.
+- **No password.** Accounts are paired by a code the viewer enters on the service's site (M6+); Antenne keeps a
+  device id and an account id, never a password.
 - **Tests never reach the network**: they run on `FakeHttp` and the fixtures in `tests/fixtures`. The live check is
   on demand: `cargo run -p antenne-smoke --release -- [CHANNEL...]`.
 

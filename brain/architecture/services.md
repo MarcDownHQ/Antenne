@@ -114,16 +114,67 @@ address (`?bpkio_sessionid=…`); 4 variants up to 540p, muxed audio, TS.
 - **Fixed addresses**, all answering a master on 2026-11-20: KTO, Gong, viàMaTélé, BIP TV, Tébéo, TéléPaese (a media
   playlist, no master), Figaro TV Île-de-France, Antenne Réunion, TVR's EasyBroadcast stream, 20 Minutes TV.
 
+## M6+
+
+Observed on 2026-11-26 with the owner's free M6+ account. These lives are Widevine only; there is no clear variant.
+
+**Lives**: `GET https://hbbtv.middleware.6play.fr/6play/v2/platforms/smarttv/services/6play/live?channel=<code>`
+with `X-Customer-Name: m6web` (no sign-in needed, the answer is the same with a box token). Codes `M6`, `W9`,
+`gulli`, `6T`, comma-separated for several. `<code>[0].live.assets[]` has `type`, `video_quality` and
+`full_physical_path`: `delta_dashcenc_h264` `hd` is
+`https://sr-m6web.live.6cloud.fr/out/v1/6play/6play-<m6|w9|gulli|6ter>/cmaf_cenc00/dash-short-hd.mpd` (302 to an
+`edge-*` host), `sd` is `dash-short-hd720.mpd`; 6ter also lists Yospace `noyo_*` assets. `service_display.images`
+carries small logos (none for Gulli).
+
+**Manifests**: dynamic DASH, `cenc`, one `default_KID` for every adaptation set (video, three audio languages),
+Widevine and PlayReady `ContentProtection` with a `cenc:pssh`. Video 360p to 1080p (`avc1.640028`, 5 Mb/s at 1080p,
+25 fps), 2.56 s segments (64 frames, 120 AAC frames).
+
+**TV signing**: every call to `6play-users.6play.fr` and `front-auth.6cloud.fr` below carries `X-Customer-Name:
+m6web`, `x-auth-device-id: <device id>`, `X-Auth-Token-Timestamp: <unix seconds>` and `X-Auth-Token`: lowercase hex
+HMAC-SHA1 keyed by the TV apps' public salt `da39a3ee5e6b4b0d3255bfef95601890afd80709`, over the path (with `/v2`),
+then the body's fields sorted by name as `key=value` URL-encoded and joined by `&` (nothing for a GET), then
+`floor(unix seconds / 60)`. Unsigned calls answer 498.
+
+**Pairing** (box id `deviceid-<device id>`, box type `smarttv`):
+
+- Start: `POST /v2/platforms/smarttv/box` with JSON `{"boxType":"smarttv","boxId":…}` gives `{"token":"<5 letters>"}`.
+  The viewer enters it at `https://www.m6.fr/device-pairing`.
+- Poll: `GET /v2/platforms/smarttv/boxTypes/smarttv/boxIds/<box id>/tokens/<code>/status`: `{"status":"waiting",
+  "uid":null}`, then `{"status":"paired","uid":"<account>"}` once entered (and still `paired` minutes later); 404 for
+  an unknown or expired code.
+- Paired users: `GET /v2/platforms/smarttv/boxTypes/smarttv/boxIds/<box id>/users`, an array of accounts (`uid`,
+  profile fields), `[]` once unpaired.
+- Box token: `GET https://front-auth.6cloud.fr/v2/platforms/smarttv/getJwt` signed, plus `x-auth-box-id`,
+  `x-auth-box-type: smarttv` and `X-Auth-gigya-uid: <account>`: `{"token":"<JWT>"}`, 30 minutes (`exp - iat` 1800).
+- Unpair: `DELETE /v2/platforms/smarttv/users/<account>/boxTypes/smarttv/boxIds/<box id>` with the same headers, 204.
+  **After unpairing, `getJwt` still answers 200 with the account in the token, and the upfront token below is still
+  granted**: only the paired users list shows the pairing is gone.
+
+**License token**: `GET https://drm.6cloud.fr/v1/customers/m6web/platforms/smarttv/services/6play/users/<account>/live/dashcenc_<code>/upfront-token`
+with `Authorization: Bearer <box token>` and `X-Customer-Name: m6web` gives `{"token":"<JWT>"}` for all four codes
+(the web platform `m6group_web` also answers). It has no `exp`; it carries the policy: SD and audio tracks allow a
+software CDM, HD needs hardware security, output protection not enforced. The same token served several license
+calls in a row.
+
+**License**: `POST https://lic.drmtoday.com/license-proxy-widevine/cenc/` with `x-dt-auth-token: <license token>`,
+`Content-Type: application/octet-stream` and the CDM's message as the body. The answer is JSON:
+`{"status":"OK","license":"<base64>","service_version_info":{…},…}`; with `?specConform=true` it is the bare
+license. A service certificate request (`08 04`) is answered the same way. A malformed message or a missing token is
+a 400 HTML page with `x-dt-resp-code: 10001`. With Google's Linux CDM 4.10.3112.0 (`secLevel` 3,
+`PLATFORM_UNVERIFIED` in `x-dt-client-info`) the license made the live's key usable, and it decrypted 1080p.
+
 ## Numbers and logos
 
 - **TNT numbers** (ARCOM numbering since 2025, per its deliberation 2025-06, read off the French Wikipedia table
-  that cites it): France 2 is 2, France 3 3, France 4 4, France 5 5, Arte 7, LCP 8, BFM TV 13, CNews 14,
-  franceinfo 16, T18 18, L'Équipe 21. No service answer carries a number.
-- **Télérama icons**: `https://focus.telerama.fr/500x500/0000/00/01/clear-<n>.png`, 500x500 PNGs; the 20 used here
-  answered 200.
+  that cites it): France 2 is 2, France 3 3, France 4 4, France 5 5, M6 6, Arte 7, LCP 8, W9 9, Gulli 12, BFM TV 13,
+  CNews 14, franceinfo 16, T18 18, L'Équipe 21, 6ter 22. No service answer carries a number.
+- **Télérama icons**: `https://focus.telerama.fr/500x500/0000/00/01/clear-<n>.png`, 500x500 PNGs; the 20 first used
+  answered 200. Added on 2026-11-26 and checked by eye: M6 118, W9 119, Gulli 482, 6ter 1403.
 - **Dailymotion avatars**: `owner.avatar_720_url`, `s1/s2.dmcdn.net/u/<hash>/720x720`.
 
 ## Sources
 
 - [tests/fixtures/](../../tests/fixtures/README.md)
 - [smoke/src/main.rs](../../smoke/src/main.rs)
+- [src/m6plus.rs](../../src/m6plus.rs)

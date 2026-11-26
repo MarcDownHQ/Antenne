@@ -2,17 +2,21 @@
 
 # Antenne
 
-French live TV for [Nightglass](https://github.com/MarcDownHQ/nightglass), without DRM.
+French live TV for [Nightglass](https://github.com/MarcDownHQ/nightglass).
 
-Antenne is a Nightglass plugin: a WebAssembly component that adds a source of 95 French live channels. The national
+Antenne is a Nightglass plugin: a WebAssembly component that adds a source of 99 French live channels. The national
 public channels and the France 3 editions come from France Télévisions, CNews, L'Équipe, T18 and the radios with a
-video live from Dailymotion, BFM TV and its local channels from bfmtv.com, plus Equidia, KTO, local stations and a
-few overseas channels. Every address is found at play time, since most are signed and short-lived.
+video live from Dailymotion, BFM TV and its local channels from bfmtv.com, M6, W9, Gulli and 6ter from M6+, plus
+Equidia, KTO, local stations and a few overseas channels. Every address is found at play time, since most are signed
+and short-lived.
 
-**Status: 0.1.0, not released yet.** A live check over all 95 channels on 2026-11-20 played every one end to end,
-T18 on a second try. A Dailymotion master is refused about once in twenty fetches; the Nightglass relay asks it
-again since [PR #44](https://github.com/MarcDownHQ/nightglass/pull/44), so this needs a Nightglass release that
-includes it (see [TODO.md](TODO.md)). No replay and no programme guide yet (see
+**Status: 0.1.0, not released yet.** A live check over the 95 clear channels on 2026-11-20 played every one end to
+end, T18 on a second try. A Dailymotion master is refused about once in twenty fetches; the Nightglass relay asks it
+again since [PR #44](https://github.com/MarcDownHQ/nightglass/pull/44) (see [TODO.md](TODO.md)). Antenne speaks the
+plugin contract 0.5.0 of Nightglass [PR #47](https://github.com/MarcDownHQ/nightglass/pull/47) and
+[PR #48](https://github.com/MarcDownHQ/nightglass/pull/48) (Widevine), not merged yet, so it needs a Nightglass
+release that includes them. The M6+ channels played at 1080p on 2026-11-26 once two Nightglass decryption bugs were
+worked around outside Antenne (see [TODO.md](TODO.md)). No replay and no programme guide yet (see
 [ROADMAP.md](ROADMAP.md)).
 
 ## Install
@@ -26,6 +30,17 @@ Download `antenne.wasm` from the latest
 
 Restart Nightglass, then add a source of type Antenne (one click, from its preset). It has no settings.
 
+### M6, W9, Gulli and 6ter
+
+These four are Widevine and need a free M6+ account:
+
+1. In Nightglass's Settings, turn on protected content (Widevine). Nightglass downloads Google's module; until then
+   the four channels are greyed out.
+2. Play one of them. Nightglass shows a five-letter code: open [m6.fr/device-pairing](https://www.m6.fr/device-pairing)
+   on a phone or a computer, sign in to M6+ and enter it within five minutes.
+3. Play the channel again. Antenne is now paired as a TV of that account; it keeps a device id and the account id,
+   never a password. Removing the device from the M6+ account brings the code back on the next play.
+
 ## How it works
 
 `load-catalog` returns a channel table compiled into the plugin, grouped (National, News, Sport, Thematic,
@@ -37,6 +52,9 @@ channel when it is played:
   through the Nightglass relay with a browser handshake. The relay's filter cuts the master down to one encoder,
   since many masters list a primary and a backup side by side on unrelated timelines.
 - **BFM**: the live page names a static master.
+- **M6+**: Antenne pairs itself with the viewer's account as an M6+ TV, takes the channel's Widevine DASH live and a
+  DRMtoday license token, and sends the CDM's license requests to DRMtoday through the `license` export. Nightglass
+  decrypts and plays it.
 - **The rest**: Kick, the Equidia racing API, EasyBroadcast, `HDR_VISIO` and Ultimedia players, TV Monaco's API,
   and a few fixed addresses.
 

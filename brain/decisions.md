@@ -22,8 +22,8 @@ keeping logic out of it is what makes the 98% floor honest, since that file is n
 
 ## No settings, one preset
 
-Every channel is public and free; there is nothing to log in to. A preset lets the user add the source in one
-click. The catalog is compiled in rather than fetched: it costs no request, cannot fail, and the services have no
+Every channel but the M6+ ones is public and free, and M6+ signs in by a code at play time rather than through a
+setting. A preset lets the user add the source in one click. The catalog is compiled in rather than fetched: it costs no request, cannot fail, and the services have no
 list that covers them all anyway.
 
 ## Dailymotion: the browser handshake, not HTTP/1.1 and cookies
@@ -48,6 +48,33 @@ The signed master plays directly, with no header, so there is no relay. Its `hdn
 master is refused after it, while the path token keeps variants and segments playing for 6 hours: keeping the
 signature 5 minutes saves two requests when zapping back without ever handing out a dead master.
 
+## DRM only through the host, only where nothing clear exists
+
+Antenne refused DRM until Nightglass could play Widevine itself (contract 0.5.0). It still refuses a protected stream
+from a service that also has clear ones (France TV `video.drm`, Dailymotion `protected_delivery`): those are errors,
+not a reason to switch to DRM. M6, W9, Gulli and 6ter have no clear live at all, so they are protected channels: the
+CDM is Google's, downloaded by Nightglass when the viewer allows it, and Antenne only carries license messages. It
+never touches keys or media.
+
+## M6+: the TV pairing code, never a password
+
+M6+ also signs in by email and password (Gigya), but a plugin that keeps a password is one more place it can leak
+from. The M6+ smart-TV sign-in needs only a code the viewer enters on m6.fr, then a device id and an account id, which
+are not secrets. The cost: one more step the first time, and a box token to renew every 30 minutes.
+
+## M6+: the pairing is checked before each new token
+
+M6+ keeps handing out box tokens and license tokens after the viewer removed the device from their account, so a
+token says nothing about the pairing. Antenne asks for the device's paired users before each new token (every 30
+minutes at most) and goes back to the code prompt when the account is no longer among them. One more request per
+token is the price of honouring a removal.
+
+## M6+: the license token travels in the playback's context
+
+`stream-url` asks for DRMtoday's license token and puts it in `drm.context`, so the first license costs no extra
+request and a missing pairing shows as a prompt before the player starts. A token can outlive its use (a long
+playback, a renewal): a refused license is retried once with a fresh token.
+
 ## Fixed addresses where the survey found static ones
 
 KTO, Gong, viàMaTélé, BIP TV, Tébéo, TéléPaese, Figaro TV and Antenne Réunion serve unsigned, unchanging masters,
@@ -65,3 +92,4 @@ numbering; nothing else is numbered rather than guessed.
 - [src/francetv.rs](../src/francetv.rs)
 - [src/catalog.rs](../src/catalog.rs)
 - [src/wasm.rs](../src/wasm.rs)
+- [src/m6plus.rs](../src/m6plus.rs)
